@@ -1,0 +1,72 @@
+/* ================================
+   RESET PARA TELA 100% NO VITE
+   ================================ */
+
+   :root {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-weight: 400;
+  
+    /* NÃO define cor nem background aqui
+       quem controla isso é o App.css */
+    color: inherit;
+    background: none;
+  
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Links - estilo neutro */
+  a {
+    font-weight: 500;
+    color: inherit;
+    text-decoration: none;
+  }
+  
+  /* Remove qualquer centralização e limitação do body que o Vite coloca */
+  html,
+  body,
+  #root {
+    margin: 0;
+    padding: 0;
+  
+    width: 100%;
+    height: 100%;
+  
+    /* evita barras extras */
+    overflow: hidden;
+  }
+  
+  /* REMOVE aquelas regras do Vite que centralizam tudo */
+  body {
+    display: block !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    place-items: unset !important;
+  }
+  
+  /* Botões padrão (app controla depois) */
+  button {
+    border-radius: 8px;
+    border: 1px solid transparent;
+    padding: 0.6em 1.2em;
+    font-size: 1em;
+    cursor: pointer;
+  }
+  
+  button:focus {
+    outline: none;
+  }
+  
+  /* Tema claro se quiser no futuro, mas agora deixa neutro */
+  @media (prefers-color-scheme: light) {
+    :root {
+      color: inherit;
+      background: none;
+    }
+  
+    button {
+      background-color: #f9f9f9;
+    }
+  }
+  
