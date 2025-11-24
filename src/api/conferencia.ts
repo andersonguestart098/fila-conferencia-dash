@@ -1,6 +1,6 @@
 // src/api/conferencia.ts
 import { api } from "./client";
-import type { DetalhePedido, ItemConferencia } from "../types/conferencia";
+import type { DetalhePedido } from "../types/conferencia";
 
 
 export async function buscarPedidosPendentes(): Promise<DetalhePedido[]> {
