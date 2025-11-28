@@ -41,28 +41,50 @@ const statusColors: Record<
 };
 
 /* -----------------------------------------------------
-   ÁUDIO POR VENDEDOR
+   ÁUDIO POR VENDEDOR (nome COMPLETO normalizado)
 ----------------------------------------------------- */
 const audioVendedores: Record<string, string> = {
-  FERNANDO: "/audio/fernando.mp3",
-  DAIANE: "/audio/daiane.mp3",
-  EDUARDO: "/audio/eduardo.mp3",
-  FAGUNDES: "/audio/fagundes.mp3",
-  FELIPE: "/audio/felipe.mp3",
-  FERNANDO2: "/audio/fernando2.mp3",
-  GABRIEL: "/audio/gabriel.mp3",
-  GASPAR: "/audio/gaspar.mp3",
-  GILIARD: "/audio/giliard.mp3",
-  GILMAR: "/audio/gilmar.mp3",
-  GUILHERME: "/audio/guilherme.mp3",
-  JONATHAS: "/audio/jonathas.mp3",
-  LEONARDO: "/audio/leonardo.mp3",
-  LUIS: "/audio/luis.mp3",
-  MARCIA: "/audio/marcia.mp3",
-  RAFAEL: "/audio/rafael.mp3",
-  RICARDO: "/audio/ricardo.mp3",
-  SABINO: "/audio/sabino.mp3",
+  // usa o nome exatamente como vem do backend, maiúsculo / sem acento funciona
+  "GUILHERME RODRIGUES": "/audio/guilherme.mp3",
+  "LUIS TIZONI": "/audio/luis.mp3",
+  "ALINE GOMES": "/audio/corte-generico.mp3",
+
+  "MARCIA MELLER": "/audio/marcia.mp3",
+  "JONATHAS RODRIGUES": "/audio/jonathas.mp3",
+  "PAULO FAGUNDES": "/audio/fagundes.mp3",
+  "RAFAEL AZEVEDO": "/audio/rafael.mp3",
+  "GB": "/audio/corte-generico.mp3",
+
+  "GILIARD CAMPOS": "/audio/giliard.mp3",
+  "SABINO BRESOLIN": "/audio/6+Sabino.mp3", // se renomear, ajusta aqui
+  "GUILHERME FRANCA": "/audio/guilherme.mp3",
+  "LEONARDO MACHADO": "/audio/leonardo.mp3",
+  "EDUARDO SANTOS": "/audio/eduardo.mp3",
+  "RICARDO MULLER": "/audio/ricardo.mp3",
+
+  "BRUNA SIQUEIRA": "/audio/corte-generico.mp3",
+  "REBECA MOURA": "/audio/corte-generico.mp3",
+
+  "GABRIEL AIRES": "/audio/gabriel.mp3",
+  "GELSON MACHADO": "/audio/corte-generico.mp3",
+
+  "GASPAR TARTARI": "/audio/gaspar.mp3",
+
+  // 👇 este é o cara que tá dando log agora
+  "FERNANDO SERAFIM": "/audio/fernando.mp3",
+
+  "TREVISANI": "/audio/corte-generico.mp3",
+
+  "DAIANE CAMPOS": "/audio/daiane.mp3",
+  "JULIA TARTARI": "/audio/corte-generico.mp3",
+
+  "FELIPE TARTARI": "/audio/felipe.mp3",
+  "BETO TARTARI": "/audio/beto.mp3",
+
+  "DANIEL MACCARI": "/audio/corte-generico.mp3",
 };
+
+
 
 function normalizarNome(nome?: string | null): string {
   if (!nome) return "";
@@ -78,8 +100,15 @@ function tocarAlertaCorte(
   nunota: number
 ) {
   const nomeNorm = normalizarNome(nomeVendedor);
+
   const src =
     (nomeNorm && audioVendedores[nomeNorm]) || "/audio/corte-generico.mp3";
+
+  console.log("[AUDIO_CORTE] Pedido", nunota, {
+    nomeVendedor,
+    nomeNormalizado: nomeNorm,
+    arquivo: src,
+  });
 
   try {
     const audio = new Audio(src);
@@ -93,8 +122,6 @@ function tocarAlertaCorte(
   }
 }
 
-const isStatusCorte = (s?: string | null) => s === "C" || s === "D";
-
 /**
  * Verifica se o pedido tem pelo menos 1 item com corte
  * usando qtdOriginal (quando existir) como base.
@@ -103,11 +130,8 @@ const isStatusCorte = (s?: string | null) => s === "C" || s === "D";
  */
 function temCorteNoPedido(pedido: DetalhePedido): boolean {
   return pedido.itens.some((i) => {
-    const original =
-      i.qtdOriginal ?? i.qtdEsperada ?? i.qtdAtual ?? 0;
-
+    const original = i.qtdOriginal ?? i.qtdEsperada ?? i.qtdAtual ?? 0;
     const atualNaNota = i.qtdAtual ?? original;
-
     return atualNaNota < original;
   });
 }
@@ -121,35 +145,31 @@ function App() {
   const [erro, setErro] = useState<string | null>(null);
   const [selecionado, setSelecionado] = useState<DetalhePedido | null>(null);
 
-  // guarda o último status conhecido por NUNOTA
-  const ultimoStatusRef = useRef<Record<number, string>>({});
+  // guarda se o pedido tinha corte na última leitura
+  const ultimoCorteRef = useRef<Record<number, boolean>>({});
 
   const dispararAlertasVoz = (lista: DetalhePedido[]) => {
-    const ultimoStatus = ultimoStatusRef.current;
+    const ultimoCorte = ultimoCorteRef.current;
 
     lista.forEach((p) => {
-      const anterior = ultimoStatus[p.nunota];
-      const atual = p.statusConferencia;
+      const temCorteAgora = temCorteNoPedido(p);
+      const tinhaCorteAntes = ultimoCorte[p.nunota] ?? false;
 
-      const mudouParaCorte =
-        isStatusCorte(atual) && !isStatusCorte(anterior);
-      const temCorte = temCorteNoPedido(p);
-
-      // Só dispara se:
-      // - o status virou C/D agora
-      // - e existe item com corte (baseado na qtdOriginal)
-      if (mudouParaCorte && temCorte) {
+      // dispara SOMENTE quando o pedido passa a ter corte
+      if (temCorteAgora && !tinhaCorteAntes) {
         tocarAlertaCorte(p.nomeVendedor, p.nunota);
       }
 
       // atualiza snapshot
-      ultimoStatus[p.nunota] = atual;
+      ultimoCorte[p.nunota] = temCorteAgora;
     });
 
     // limpa notas que saíram da lista
     const nunotasAtuais = new Set(lista.map((p) => p.nunota));
-    Object.keys(ultimoStatus).forEach((k: any) => {
-      if (!nunotasAtuais.has(Number(k))) delete ultimoStatus[k];
+    Object.keys(ultimoCorte).forEach((k) => {
+      if (!nunotasAtuais.has(Number(k))) {
+        delete ultimoCorte[Number(k)];
+      }
     });
   };
 
@@ -252,6 +272,12 @@ function App() {
                   <div>
                     <div className="pedido-label">Pedido</div>
                     <div className="pedido-number">#{p.nunota}</div>
+
+                    {p.nomeParc && (
+                      <div className="pedido-vendedor">
+                        Cliente: {p.nomeParc}
+                      </div>
+                    )}
 
                     {p.nomeVendedor && (
                       <div className="pedido-vendedor">
@@ -363,13 +389,9 @@ function App() {
 --------------------------------------------------------- */
 
 function DetalhePedidoPanel({ pedido }: { pedido: DetalhePedido }) {
-  // usa mesma lógica de corte do temCorteNoPedido, mas por item
   const itensComCorte = pedido.itens.filter((i) => {
-    const original =
-      i.qtdOriginal ?? i.qtdEsperada ?? i.qtdAtual ?? 0;
-
+    const original = i.qtdOriginal ?? i.qtdEsperada ?? i.qtdAtual ?? 0;
     const atualNaNota = i.qtdAtual ?? original;
-
     return atualNaNota < original;
   });
 
@@ -389,6 +411,12 @@ function DetalhePedidoPanel({ pedido }: { pedido: DetalhePedido }) {
         <div>
           <div className="detail-label">Pedido</div>
           <div className="detail-number">#{pedido.nunota}</div>
+
+          {pedido.nomeParc && (
+            <div className="detail-vendedor">
+              Cliente: {pedido.nomeParc}
+            </div>
+          )}
 
           {pedido.nomeVendedor && (
             <div className="detail-vendedor">
@@ -420,8 +448,7 @@ function DetalhePedidoPanel({ pedido }: { pedido: DetalhePedido }) {
           const original =
             item.qtdOriginal ?? item.qtdEsperada ?? item.qtdAtual ?? 0;
 
-          const conferido =
-            item.qtdConferida ?? item.qtdAtual ?? original;
+          const conferido = item.qtdConferida ?? item.qtdAtual ?? original;
 
           const atualNaNota = item.qtdAtual ?? conferido;
 
