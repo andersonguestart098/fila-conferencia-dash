@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 import type { DetalhePedido } from "./types/conferencia";
 import { buscarPedidosPendentes } from "./api/conferencia";
 
-// Mapa de código → descrição legível
+/* -----------------------------------------------------
+   MAPA DE STATUS
+----------------------------------------------------- */
 const statusMap: Record<string, string> = {
   A: "Em andamento",
   AC: "Aguardando conferência",
@@ -18,14 +20,19 @@ const statusMap: Record<string, string> = {
   Z: "Aguardando finalização",
 };
 
-// Cores usadas no "badge" de status
-const statusColors: Record<string, { bg: string; border: string; text: string }> = {
+/* -----------------------------------------------------
+   CORES
+----------------------------------------------------- */
+const statusColors: Record<
+  string,
+  { bg: string; border: string; text: string }
+> = {
   A: { bg: "#E5F0FF", border: "#BFDBFE", text: "#1D4ED8" },
   AC: { bg: "#FEF3C7", border: "#FDE68A", text: "#92400E" },
   AL: { bg: "#F3F4F6", border: "#E5E7EB", text: "#4B5563" },
-  C: { bg: "#F3F4F6", border: "#E5E7EB", text: "#4B5563" },
+  C: { bg: "#FFF4E5", border: "#FFCC80", text: "#E65100" },
   D: { bg: "#FEE2E2", border: "#FCA5A5", text: "#B91C1C" },
-  F: { bg: "#E8FDEB", border: "#66CC66", text: "#166534" }, // verde principal
+  F: { bg: "#E8FDEB", border: "#66CC66", text: "#166534" },
   R: { bg: "#FFEDD5", border: "#FED7AA", text: "#9A3412" },
   RA: { bg: "#E5F0FF", border: "#BFDBFE", text: "#1D4ED8" },
   RD: { bg: "#FEE2E2", border: "#FCA5A5", text: "#B91C1C" },
@@ -33,64 +40,166 @@ const statusColors: Record<string, { bg: string; border: string; text: string }>
   Z: { bg: "#F3F4F6", border: "#E5E7EB", text: "#4B5563" },
 };
 
+/* -----------------------------------------------------
+   ÁUDIO POR VENDEDOR
+----------------------------------------------------- */
+const audioVendedores: Record<string, string> = {
+  FERNANDO: "/audio/fernando.mp3",
+  DAIANE: "/audio/daiane.mp3",
+  EDUARDO: "/audio/eduardo.mp3",
+  FAGUNDES: "/audio/fagundes.mp3",
+  FELIPE: "/audio/felipe.mp3",
+  FERNANDO2: "/audio/fernando2.mp3",
+  GABRIEL: "/audio/gabriel.mp3",
+  GASPAR: "/audio/gaspar.mp3",
+  GILIARD: "/audio/giliard.mp3",
+  GILMAR: "/audio/gilmar.mp3",
+  GUILHERME: "/audio/guilherme.mp3",
+  JONATHAS: "/audio/jonathas.mp3",
+  LEONARDO: "/audio/leonardo.mp3",
+  LUIS: "/audio/luis.mp3",
+  MARCIA: "/audio/marcia.mp3",
+  RAFAEL: "/audio/rafael.mp3",
+  RICARDO: "/audio/ricardo.mp3",
+  SABINO: "/audio/sabino.mp3",
+};
+
+function normalizarNome(nome?: string | null): string {
+  if (!nome) return "";
+  return nome
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .trim();
+}
+
+function tocarAlertaCorte(
+  nomeVendedor: string | null | undefined,
+  nunota: number
+) {
+  const nomeNorm = normalizarNome(nomeVendedor);
+  const src =
+    (nomeNorm && audioVendedores[nomeNorm]) || "/audio/corte-generico.mp3";
+
+  try {
+    const audio = new Audio(src);
+    audio
+      .play()
+      .catch((err) =>
+        console.error("Falha ao tocar áudio de corte:", err, { src })
+      );
+  } catch (e) {
+    console.error("Erro ao inicializar áudio:", e);
+  }
+}
+
+const isStatusCorte = (s?: string | null) => s === "C" || s === "D";
+
+/**
+ * Verifica se o pedido tem pelo menos 1 item com corte
+ * usando qtdOriginal (quando existir) como base.
+ *
+ * Corte = qtdOriginal > qtdAtual (nota já cortada).
+ */
+function temCorteNoPedido(pedido: DetalhePedido): boolean {
+  return pedido.itens.some((i) => {
+    const original =
+      i.qtdOriginal ?? i.qtdEsperada ?? i.qtdAtual ?? 0;
+
+    const atualNaNota = i.qtdAtual ?? original;
+
+    return atualNaNota < original;
+  });
+}
+
+/* -----------------------------------------------------
+   APP
+----------------------------------------------------- */
 function App() {
   const [pedidos, setPedidos] = useState<DetalhePedido[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingInicial, setLoadingInicial] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [selecionado, setSelecionado] = useState<DetalhePedido | null>(null);
 
-  // carrega + polling
+  // guarda o último status conhecido por NUNOTA
+  const ultimoStatusRef = useRef<Record<number, string>>({});
+
+  const dispararAlertasVoz = (lista: DetalhePedido[]) => {
+    const ultimoStatus = ultimoStatusRef.current;
+
+    lista.forEach((p) => {
+      const anterior = ultimoStatus[p.nunota];
+      const atual = p.statusConferencia;
+
+      const mudouParaCorte =
+        isStatusCorte(atual) && !isStatusCorte(anterior);
+      const temCorte = temCorteNoPedido(p);
+
+      // Só dispara se:
+      // - o status virou C/D agora
+      // - e existe item com corte (baseado na qtdOriginal)
+      if (mudouParaCorte && temCorte) {
+        tocarAlertaCorte(p.nomeVendedor, p.nunota);
+      }
+
+      // atualiza snapshot
+      ultimoStatus[p.nunota] = atual;
+    });
+
+    // limpa notas que saíram da lista
+    const nunotasAtuais = new Set(lista.map((p) => p.nunota));
+    Object.keys(ultimoStatus).forEach((k: any) => {
+      if (!nunotasAtuais.has(Number(k))) delete ultimoStatus[k];
+    });
+  };
+
+  /* --------------------- LOAD + POLLING -------------------- */
   useEffect(() => {
     let ativo = true;
 
     const carregar = async () => {
       try {
-        setLoading(true);
-        setErro(null);
-        const atualizados = await buscarPedidosPendentes();
+        const lista = await buscarPedidosPendentes();
         if (!ativo) return;
-        setPedidos(atualizados);
 
-        // se nada selecionado ainda, pega o primeiro
-        if (!selecionado && atualizados.length > 0) {
-          setSelecionado(atualizados[0]);
+        setErro(null);
+        setLoadingInicial(false);
+
+        dispararAlertasVoz(lista);
+        setPedidos(lista);
+
+        if (!selecionado && lista.length > 0) {
+          setSelecionado(lista[0]);
+        } else if (
+          selecionado &&
+          !lista.some((p) => p.nunota === selecionado.nunota)
+        ) {
+          setSelecionado(lista[0] ?? null);
         }
       } catch (e) {
-        console.error("Erro ao carregar pedidos:", e);
-        if (ativo) setErro("Erro ao carregar pedidos.");
-      } finally {
-        if (ativo) setLoading(false);
+        console.error("Falha ao buscar pedidos:", e);
+        if (ativo) {
+          setLoadingInicial(false);
+          setErro("Erro ao carregar pedidos.");
+        }
       }
     };
 
     carregar();
-
-    const interval = setInterval(async () => {
-      try {
-        const atualizados = await buscarPedidosPendentes();
-        if (!ativo) return;
-        setPedidos(atualizados);
-
-        // se o selecionado sumir da lista, limpa seleção
-        if (
-          selecionado &&
-          !atualizados.some((p) => p.nunota === selecionado.nunota)
-        ) {
-          setSelecionado(atualizados[0] ?? null);
-        }
-      } catch (e) {
-        console.error("Erro ao atualizar pedidos:", e);
-      }
-    }, 5000);
+    const interval = setInterval(carregar, 5000);
 
     return () => {
       ativo = false;
       clearInterval(interval);
     };
-  }, [selecionado]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  /* ---------------------------------------------------------
+      LISTA ESQUERDA
+  --------------------------------------------------------- */
   const renderLista = () => {
-    if (loading && pedidos.length === 0) {
+    if (loadingInicial && pedidos.length === 0) {
       return (
         <div className="center">
           <div className="spinner" />
@@ -99,7 +208,7 @@ function App() {
       );
     }
 
-    if (erro) {
+    if (erro && pedidos.length === 0) {
       return (
         <div className="center">
           <p className="error-text">{erro}</p>
@@ -119,48 +228,48 @@ function App() {
 
     return (
       <div className="cards-grid">
-        {pedidos.map((item) => {
+        {pedidos.map((p) => {
+          const isSelected = selecionado?.nunota === p.nunota;
           const emConferencia =
-            item.statusConferencia === "A" && !!item.nomeConferente;
+            p.statusConferencia === "A" && !!p.nomeConferente;
 
-          const statusDescricao = statusMap[item.statusConferencia] || "-";
-          const colors =
-            statusColors[item.statusConferencia] || statusColors.AL;
-
-          const isSelected = selecionado?.nunota === item.nunota;
+          const colors = statusColors[p.statusConferencia] || statusColors.AL;
+          const statusDesc = statusMap[p.statusConferencia] || "-";
 
           return (
             <div
-              key={item.nunota}
+              key={p.nunota}
               className={
                 "card" +
                 (emConferencia ? " card-em-conferencia" : "") +
                 (isSelected ? " card-selected" : "")
               }
-              onClick={() => setSelecionado(item)}
-              role="button"
-              tabIndex={0}
+              onClick={() => setSelecionado(p)}
             >
-              {/* Header */}
               <div className="card-header">
                 <div className="header-left">
                   <span className="box-icon">📦</span>
                   <div>
                     <div className="pedido-label">Pedido</div>
-                    <div className="pedido-number">#{item.nunota}</div>
+                    <div className="pedido-number">#{p.nunota}</div>
+
+                    {p.nomeVendedor && (
+                      <div className="pedido-vendedor">
+                        Vendedor: {p.nomeVendedor}
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {emConferencia && item.avatarUrlConferente && (
+                {emConferencia && p.avatarUrlConferente && (
                   <img
-                    src={item.avatarUrlConferente}
-                    alt={item.nomeConferente ?? "Conferente"}
                     className="avatar"
+                    src={p.avatarUrlConferente}
+                    alt={p.nomeConferente ?? "Conferente"}
                   />
                 )}
               </div>
 
-              {/* Status pill */}
               <div
                 className="status-pill"
                 style={{
@@ -172,36 +281,31 @@ function App() {
                   className="status-dot"
                   style={{ backgroundColor: colors.text }}
                 />
-                <span
-                  className="status-text"
-                  style={{ color: colors.text }}
-                >
-                  {statusDescricao}
+                <span className="status-text" style={{ color: colors.text }}>
+                  {statusDesc}
                 </span>
               </div>
 
-              {/* Info row */}
               <div className="info-row">
                 <div className="info-item">
                   <div className="info-label">Itens</div>
-                  <div className="info-value">{item.itens.length}</div>
+                  <div className="info-value">{p.itens.length}</div>
                 </div>
 
                 {emConferencia && (
                   <div className="info-item">
                     <div className="info-label">Conferente</div>
                     <div className="info-value-small">
-                      {item.nomeConferente}
+                      {p.nomeConferente}
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Aviso conferente */}
               {emConferencia && (
                 <div className="conferente-box">
-                  <span className="conferente-text">
-                    {item.nomeConferente} está conferindo este pedido
+                  <span>
+                    {p.nomeConferente} está conferindo este pedido
                   </span>
                 </div>
               )}
@@ -212,13 +316,15 @@ function App() {
     );
   };
 
+  /* ---------------------------------------------------------
+      DETALHE DIREITO
+  --------------------------------------------------------- */
   return (
     <div className="app-root">
-      {/* Topbar */}
       <header className="topbar">
         <div className="topbar-left">
           <span className="topbar-logo">📦</span>
-          <div className="topbar-title-group">
+          <div>
             <div className="topbar-title">Fila de Conferência</div>
             <div className="topbar-subtitle">Painel de Acompanhamento</div>
           </div>
@@ -226,10 +332,14 @@ function App() {
 
         <div className="topbar-right">
           <span className="topbar-badge">Pendentes: {pedidos.length}</span>
+          {erro && pedidos.length > 0 && (
+            <span className="topbar-warning">
+              ⚠ {erro} (mantendo últimos dados)
+            </span>
+          )}
         </div>
       </header>
 
-      {/* Conteúdo principal: lista + detalhe */}
       <main className="main-content">
         <section className="list-pane">{renderLista()}</section>
 
@@ -238,10 +348,8 @@ function App() {
             <DetalhePedidoPanel pedido={selecionado} />
           ) : (
             <div className="detail-empty">
-              <span className="detail-empty-emoji">👈</span>
-              <span className="detail-empty-text">
-                Selecione um pedido na lista
-              </span>
+              <span>👈</span>
+              <span>Selecione um pedido na lista</span>
             </div>
           )}
         </aside>
@@ -250,30 +358,30 @@ function App() {
   );
 }
 
-type DetalheProps = {
-  pedido: DetalhePedido;
-};
+/* ---------------------------------------------------------
+     DETALHE + CORTES
+--------------------------------------------------------- */
 
-function DetalhePedidoPanel({ pedido }: DetalheProps) {
-  const totalItens = pedido.itens.length;
-  const totalQuantidade = pedido.itens.reduce((acc: number, item: any) => {
-    const qtd =
-      (item.qtdNeg as number | undefined) ??
-      (item.qtdEsperada as number | undefined) ??
-      0;
-    return acc + qtd;
-  }, 0);
+function DetalhePedidoPanel({ pedido }: { pedido: DetalhePedido }) {
+  // usa mesma lógica de corte do temCorteNoPedido, mas por item
+  const itensComCorte = pedido.itens.filter((i) => {
+    const original =
+      i.qtdOriginal ?? i.qtdEsperada ?? i.qtdAtual ?? 0;
 
-  const itensResumo = pedido.itens.slice(0, 10);
-  const itensRestantes = totalItens - itensResumo.length;
+    const atualNaNota = i.qtdAtual ?? original;
 
-  const statusDescricao =
-    statusMap[pedido.statusConferencia] ||
-    pedido.statusConferencia ||
-    "-";
+    return atualNaNota < original;
+  });
 
-  const colors =
-    statusColors[pedido.statusConferencia] || statusColors.AL;
+  const temCorte = itensComCorte.length > 0;
+
+  const statusDesc = temCorte
+    ? "Finalizada com corte"
+    : statusMap[pedido.statusConferencia] || pedido.statusConferencia;
+
+  const colors = temCorte
+    ? { bg: "#FFE0E0", border: "#FF9999", text: "#B00000" }
+    : statusColors[pedido.statusConferencia] || statusColors.AL;
 
   return (
     <div className="detail-card">
@@ -281,6 +389,12 @@ function DetalhePedidoPanel({ pedido }: DetalheProps) {
         <div>
           <div className="detail-label">Pedido</div>
           <div className="detail-number">#{pedido.nunota}</div>
+
+          {pedido.nomeVendedor && (
+            <div className="detail-vendedor">
+              Vendedor: {pedido.nomeVendedor}
+            </div>
+          )}
         </div>
 
         <div
@@ -292,32 +406,30 @@ function DetalhePedidoPanel({ pedido }: DetalheProps) {
           }}
         >
           <span className="detail-status-dot" />
-          <span className="detail-status-text">{statusDescricao}</span>
-        </div>
-      </div>
-
-      <div className="detail-meta">
-        <div className="detail-meta-item">
-          <span className="detail-meta-label">Status</span>
-          <span className="detail-meta-value">{statusDescricao}</span>
-        </div>
-        <div className="detail-meta-item">
-          <span className="detail-meta-label">Total de itens</span>
-          <span className="detail-meta-value">{totalItens}</span>
-        </div>
-        <div className="detail-meta-item">
-          <span className="detail-meta-label">Quantidade total</span>
-          <span className="detail-meta-value">{totalQuantidade}</span>
+          <span className="detail-status-text">
+            {temCorte ? "✂️ " : ""}
+            {statusDesc}
+          </span>
         </div>
       </div>
 
       <div className="detail-section">
-        <div className="detail-section-title">Resumo dos produtos</div>
+        <div className="detail-section-title">Itens</div>
 
-        <div className="detail-items-list">
-          {itensResumo.map((item: any, idx: number) => (
+        {pedido.itens.map((item, idx) => {
+          const original =
+            item.qtdOriginal ?? item.qtdEsperada ?? item.qtdAtual ?? 0;
+
+          const conferido =
+            item.qtdConferida ?? item.qtdAtual ?? original;
+
+          const atualNaNota = item.qtdAtual ?? conferido;
+
+          const corte = Math.max(0, original - atualNaNota);
+
+          return (
             <div
-              key={`${item.sequencia ?? idx}-${item.codProd}`}
+              key={`${item.codProd}-${idx}`}
               className="detail-item-row"
             >
               <div className="detail-item-main">
@@ -325,36 +437,28 @@ function DetalhePedidoPanel({ pedido }: DetalheProps) {
                   {item.codProd} · {item.descricao}
                 </div>
                 <div className="detail-item-sub">
-                  Unidade: {item.unidade ?? "-"}
+                  Unidade: {item.unidade}
                 </div>
               </div>
+
               <div className="detail-item-qty">
-                Qtd:{" "}
-                {(item.qtdNeg ?? item.qtdEsperada ?? "-") as
-                  | number
-                  | string}
+                <div>Orig: {original}</div>
+                <div>Nota: {atualNaNota}</div>
+                <div>Conf: {conferido}</div>
+                {corte > 0 && (
+                  <div className="item-corte">✂️ Corte: {corte}</div>
+                )}
               </div>
             </div>
-          ))}
-        </div>
-
-        {itensRestantes > 0 && (
-          <div className="detail-more">
-            + {itensRestantes} itens não exibidos
-          </div>
-        )}
+          );
+        })}
       </div>
 
-      {/* 🔒 Botão sempre desabilitado no dashboard */}
-      <button
-        className="detail-button detail-button-disabled"
-        disabled
-      >
+      <button className="detail-button detail-button-disabled" disabled>
         Conferência feita no app
       </button>
     </div>
   );
 }
-
 
 export default App;
