@@ -29,21 +29,25 @@ export function PedidoList({
   selecionado,
   onSelect,
 }: PedidoListProps) {
-  // 🔎 estado de busca e página
   const [busca, setBusca] = useState("");
   const [pagina, setPagina] = useState(1);
+  const [somenteAguardando, setSomenteAguardando] = useState(false);
 
-  // sempre que mudar lista ou filtro, volta pra página 1
   useEffect(() => {
     setPagina(1);
-  }, [busca, pedidos]);
+  }, [busca, pedidos, somenteAguardando]);
 
-  // 🔍 filtra pelos campos principais (nunota, numNota, cliente, vendedor)
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    if (!termo) return pedidos;
 
-    return pedidos.filter((p) => {
+    let base = pedidos;
+    if (somenteAguardando) {
+      base = base.filter((p) => p.statusConferencia === "AC");
+    }
+
+    if (!termo) return base;
+
+    return base.filter((p) => {
       const nunotaStr = p.nunota?.toString() ?? "";
       const numNotaStr = p.numNota ? p.numNota.toString() : "";
       const cliente = p.nomeParc?.toLowerCase() ?? "";
@@ -56,7 +60,7 @@ export function PedidoList({
         vendedor.includes(termo)
       );
     });
-  }, [busca, pedidos]);
+  }, [busca, pedidos, somenteAguardando]);
 
   const totalFiltrados = filtrados.length;
   const totalPaginas = Math.max(
@@ -67,8 +71,6 @@ export function PedidoList({
   const inicio = (paginaAtual - 1) * ITENS_POR_PAGINA;
   const fim = inicio + ITENS_POR_PAGINA;
   const paginaPedidos = filtrados.slice(inicio, fim);
-
-  // 🔽 A partir daqui só JSX/returns, sem mais hooks
 
   if (loadingInicial && pedidos.length === 0) {
     return (
@@ -109,6 +111,20 @@ export function PedidoList({
           onChange={(e) => setBusca(e.target.value)}
         />
 
+        {/* Chip de filtro AC */}
+        <button
+          type="button"
+          className={
+            "filter-chip" + (somenteAguardando ? " filter-chip-active" : "")
+          }
+          onClick={() => setSomenteAguardando((prev) => !prev)}
+        >
+          <span className="filter-dot" />
+          {somenteAguardando
+            ? "Ver todos"
+            : "Só aguardando conferência"}
+        </button>
+
         <div className="pagination-info">
           <span>
             Mostrando{" "}
@@ -121,7 +137,6 @@ export function PedidoList({
         </div>
       </div>
 
-      {/* Se não houver resultados para o filtro atual */}
       {totalFiltrados === 0 ? (
         <div className="empty-state">
           <div className="empty-emoji">🔎</div>
@@ -142,11 +157,7 @@ export function PedidoList({
                 statusColors[p.statusConferencia] || statusColors.AL;
               const statusBase = statusMap[p.statusConferencia] || "-";
 
-              // ✂️ verifica se o pedido tem corte
               const temCorte = temCorteNoPedido(p);
-              const statusDesc = temCorte
-                ? `✂️ Corte no pedido · ${statusBase}`
-                : statusBase;
 
               return (
                 <div
@@ -215,7 +226,14 @@ export function PedidoList({
                             className="status-text"
                             style={{ color: colors.text }}
                           >
-                            {statusDesc}
+                            {temCorte && (
+                              <span className="corte-icon">
+                                ✂️ Corte no pedido
+                              </span>
+                            )}
+                            <span className="status-base">
+                              {statusBase}
+                            </span>
                           </span>
                         </div>
 
@@ -262,7 +280,6 @@ export function PedidoList({
             })}
           </div>
 
-          {/* Controles de paginação */}
           <div className="pagination-bar">
             <button
               className="pagination-btn"

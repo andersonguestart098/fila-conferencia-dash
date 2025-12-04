@@ -922,3 +922,80 @@ body {
   font-size: 13px;
   color: #4b5563;
 }
+
+/* Chip de filtro "Só aguardando conferência" */
+.filter-chip {
+  border-radius: 999px;
+  border: 1px solid #66cc66;
+  background: rgba(102, 204, 102, 0.08);
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #66cc66;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 0.1s ease,
+    box-shadow 0.15s ease;
+  outline: none;
+}
+
+.filter-chip:hover {
+  background: rgba(102, 204, 102, 0.15);
+  box-shadow: 0 0 0 1px rgba(102, 204, 102, 0.25);
+  transform: translateY(-1px);
+}
+
+.filter-chip:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.filter-chip-active {
+  background: #66cc66;
+  color: #ffffff;
+  border-color: #66cc66;
+}
+
+.filter-chip-active .filter-dot {
+  background: #ffffff;
+}
+
+/* Bolinha dentro do chip */
+.filter-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #66cc66;
+}
+
+/* Para o texto de status ficar com os elementos lado a lado */
+.status-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Ícone/tag de corte mais destacada */
+.corte-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 86, 86, 0.12);
+  color: #d4380d;
+  border: 1px solid rgba(212, 56, 13, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.status-base {
+  font-size: 0.8rem;
+}
