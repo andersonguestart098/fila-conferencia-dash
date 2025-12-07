@@ -14,12 +14,15 @@ export function DetalhePedidoPanel({ pedido }: DetalhePedidoPanelProps) {
   });
 
   const temCorte = itensComCorte.length > 0;
+  const divergente = pedido.statusConferencia === "D";
 
-  const statusDesc = temCorte
-    ? "Finalizada com corte"
+  // 🔎 Status: se estiver divergente, força texto "Finalizada divergente"
+  const statusDesc = divergente
+    ? "Finalizada divergente"
     : statusMap[pedido.statusConferencia] || pedido.statusConferencia;
 
-  const colors = temCorte
+  // 🎨 Cores: se divergente, usa paleta de alerta; senão, cores padrão do status
+  const colors = divergente
     ? { bg: "#FFE0E0", border: "#FF9999", text: "#B00000" }
     : statusColors[pedido.statusConferencia] || statusColors.AL;
 
@@ -56,7 +59,7 @@ export function DetalhePedidoPanel({ pedido }: DetalhePedidoPanelProps) {
         >
           <span className="detail-status-dot" />
           <span className="detail-status-text">
-            {temCorte ? "✂️ " : ""}
+            {/* sem ícone de tesoura aqui, só o texto do status */}
             {statusDesc}
           </span>
         </div>
@@ -95,7 +98,8 @@ export function DetalhePedidoPanel({ pedido }: DetalhePedidoPanelProps) {
                   <div>Nota: {atualNaNota}</div>
                   <div>Conf: {conferido}</div>
                   {corte > 0 && (
-                    <div className="item-corte">✂️ Corte: {corte}</div>
+                    // mantém o detalhe do corte, mas sem o ícone ✂️
+                    <div className="item-corte">Corte: {corte}</div>
                   )}
                 </div>
               </div>

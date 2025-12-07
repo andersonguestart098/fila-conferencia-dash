@@ -13,6 +13,29 @@ interface PedidoListProps {
 
 const ITENS_POR_PAGINA = 50;
 
+// 🧑‍💼 Lista fixa de vendedores para filtro
+const VENDEDORES: string[] = [
+  "LUIS TIZONI",
+  "MARCIA MELLER",
+  "JONATHAS RODRIGUES",
+  "PAULO FAGUNDES",
+  "RAFAEL AZEVEDO",
+  "GB",
+  "GILIARD CAMPOS",
+  "SABINO BRESOLIN",
+  "GUILHERME FRANCA",
+  "LEONARDO MACHADO",
+  "EDUARDO SANTOS",
+  "RICARDO MULLER",
+  "GABRIEL AIRES",
+  "GASPAR TARTARI",
+  "FERNANDO SERAFIM",
+  "DAIANE CAMPOS",
+  "FELIPE TARTARI",
+  "BETO TARTARI",
+  "DANIEL MACCARI",
+];
+
 // 🔎 mesma regra de corte usada no DetalhePedidoPanel
 function temCorteNoPedido(pedido: DetalhePedido): boolean {
   return pedido.itens.some((i) => {
@@ -33,16 +56,30 @@ export function PedidoList({
   const [pagina, setPagina] = useState(1);
   const [somenteAguardando, setSomenteAguardando] = useState(false);
 
+  // 🎯 novo: filtro por vendedor
+  const [vendedorFiltro, setVendedorFiltro] = useState<string | null>(null);
+  const [mostrarListaVendedores, setMostrarListaVendedores] = useState(false);
+
+  // 🔁 Resetar página quando usuário muda busca, filtro de status ou vendedor
   useEffect(() => {
     setPagina(1);
-  }, [busca, pedidos, somenteAguardando]);
+  }, [busca, somenteAguardando, vendedorFiltro]);
 
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
 
     let base = pedidos;
+
     if (somenteAguardando) {
       base = base.filter((p) => p.statusConferencia === "AC");
+    }
+
+    if (vendedorFiltro) {
+      base = base.filter(
+        (p) =>
+          (p.nomeVendedor ?? "").toLowerCase() ===
+          vendedorFiltro.toLowerCase()
+      );
     }
 
     if (!termo) return base;
@@ -60,17 +97,25 @@ export function PedidoList({
         vendedor.includes(termo)
       );
     });
-  }, [busca, pedidos, somenteAguardando]);
+  }, [busca, pedidos, somenteAguardando, vendedorFiltro]);
 
+  const totalBase = pedidos.length;
   const totalFiltrados = filtrados.length;
   const totalPaginas = Math.max(
     1,
     Math.ceil(totalFiltrados / ITENS_POR_PAGINA)
   );
+
   const paginaAtual = Math.min(pagina, totalPaginas);
   const inicio = (paginaAtual - 1) * ITENS_POR_PAGINA;
   const fim = inicio + ITENS_POR_PAGINA;
   const paginaPedidos = filtrados.slice(inicio, fim);
+
+  useEffect(() => {
+    if (pagina > totalPaginas) {
+      setPagina(totalPaginas);
+    }
+  }, [totalPaginas, pagina]);
 
   if (loadingInicial && pedidos.length === 0) {
     return (
@@ -120,10 +165,56 @@ export function PedidoList({
           onClick={() => setSomenteAguardando((prev) => !prev)}
         >
           <span className="filter-dot" />
-          {somenteAguardando
-            ? "Ver todos"
-            : "Só aguardando conferência"}
+          {somenteAguardando ? "Ver todos" : "Só aguardando conferência"}
         </button>
+
+        {/* 🎯 Filtro por vendedor */}
+        <div className="vendor-filter-wrapper">
+          <button
+            type="button"
+            className={
+              "filter-chip" + (vendedorFiltro ? " filter-chip-active" : "")
+            }
+            onClick={() => setMostrarListaVendedores((prev) => !prev)}
+          >
+            <span className="filter-dot" />
+            {vendedorFiltro
+              ? `Vendedor: ${vendedorFiltro}`
+              : "Filtrar por vendedor"}
+            <span style={{ marginLeft: 6 }}>▾</span>
+          </button>
+
+          {mostrarListaVendedores && (
+            <div className="vendor-dropdown">
+              <button
+                type="button"
+                className={"vendor-item" + (!vendedorFiltro ? " active" : "")}
+                onClick={() => {
+                  setVendedorFiltro(null);
+                  setMostrarListaVendedores(false);
+                }}
+              >
+                Todos os vendedores
+              </button>
+
+              {VENDEDORES.map((nome) => (
+                <button
+                  key={nome}
+                  type="button"
+                  className={
+                    "vendor-item" + (vendedorFiltro === nome ? " active" : "")
+                  }
+                  onClick={() => {
+                    setVendedorFiltro(nome);
+                    setMostrarListaVendedores(false);
+                  }}
+                >
+                  {nome}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="pagination-info">
           <span>
@@ -133,6 +224,12 @@ export function PedidoList({
               {Math.min(fim, totalFiltrados)}
             </strong>{" "}
             de <strong>{totalFiltrados}</strong> pedidos
+            {totalFiltrados !== totalBase && (
+              <>
+                {" "}
+                (de <strong>{totalBase}</strong> no total)
+              </>
+            )}
           </span>
         </div>
       </div>
@@ -158,6 +255,7 @@ export function PedidoList({
               const statusBase = statusMap[p.statusConferencia] || "-";
 
               const temCorte = temCorteNoPedido(p);
+              const divergente = p.statusConferencia === "D";
 
               return (
                 <div
@@ -168,6 +266,8 @@ export function PedidoList({
                     (isSelected ? " card-selected" : "")
                   }
                   onClick={() => onSelect(p)}
+                  data-status-conferencia={p.statusConferencia}
+                  data-divergente={divergente ? "true" : "false"}
                 >
                   <div className="card-header">
                     <div className="header-left">
@@ -192,9 +292,7 @@ export function PedidoList({
                             <div className="cliente-info">
                               <div className="info-tag cliente-tag">
                                 <span className="info-icon">🏢</span>
-                                <span className="info-text">
-                                  {p.nomeParc}
-                                </span>
+                                <span className="info-text">{p.nomeParc}</span>
                               </div>
                             </div>
                           )}
@@ -226,11 +324,20 @@ export function PedidoList({
                             className="status-text"
                             style={{ color: colors.text }}
                           >
-                            {temCorte && (
+                            {/* 🔊 Preferência agora é pelo status divergente */}
+                            {divergente && (
                               <span className="corte-icon">
-                                ✂️ Corte no pedido
+                                ⚠️ Status divergente{" "}
                               </span>
                             )}
+
+                            {/* Se não for divergente, mas tiver corte, mantém info de corte */}
+                            {!divergente && temCorte && (
+                              <span className="corte-icon">
+                                ✂️ Corte no pedido{" "}
+                              </span>
+                            )}
+
                             <span className="status-base">
                               {statusBase}
                             </span>
@@ -247,9 +354,7 @@ export function PedidoList({
 
                           {emConferencia && (
                             <div className="info-item">
-                              <div className="info-label">
-                                Conferente
-                              </div>
+                              <div className="info-label">Conferente</div>
                               <div className="info-value-small">
                                 {p.nomeConferente}
                               </div>
@@ -284,9 +389,7 @@ export function PedidoList({
             <button
               className="pagination-btn"
               disabled={paginaAtual === 1}
-              onClick={() =>
-                setPagina((prev) => Math.max(1, prev - 1))
-              }
+              onClick={() => setPagina((prev) => Math.max(1, prev - 1))}
             >
               ◀ Anterior
             </button>
@@ -300,9 +403,7 @@ export function PedidoList({
               className="pagination-btn"
               disabled={paginaAtual === totalPaginas}
               onClick={() =>
-                setPagina((prev) =>
-                  Math.min(totalPaginas, prev + 1)
-                )
+                setPagina((prev) => Math.min(totalPaginas, prev + 1))
               }
             >
               Próxima ▶
