@@ -49,6 +49,50 @@ async function getComRetry<T>(
   throw lastErr;
 }
 
+// ✅ Tipos e funções para gerenciamento de conferentes no localStorage
+type ConferenteByNunota = Record<number, { codUsuario: number; nome: string }>;
+
+function loadConferenteByNunota(): ConferenteByNunota {
+  try {
+    return JSON.parse(localStorage.getItem("conferenteByNunota") || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveConferenteByNunota(next: ConferenteByNunota) {
+  try {
+    localStorage.setItem("conferenteByNunota", JSON.stringify(next));
+  } catch {
+    // ignore
+  }
+}
+
+// ✅ Função para buscar conferentes do backend (opcional)
+export async function buscarConferentesDoBackend(): Promise<{ codUsuario: number; nome: string }[]> {
+  try {
+    // Se você tiver um endpoint específico para conferentes no backend
+    // const resp = await api.get<Conferente[]>('/api/conferentes');
+    // return resp.data;
+    
+    // Por enquanto, retorna a lista fixa
+    return [
+      { codUsuario: 1, nome: "Manoel" },
+      { codUsuario: 2, nome: "Anderson" },
+      { codUsuario: 3, nome: "Felipe" },
+      { codUsuario: 4, nome: "Matheus" },
+      { codUsuario: 5, nome: "Cristiano" },
+      { codUsuario: 6, nome: "Cristiano Sanhudo" },
+      { codUsuario: 7, nome: "Eduardo" },
+      { codUsuario: 8, nome: "Everton" },
+      { codUsuario: 9, nome: "Maximiliano" },
+    ];
+  } catch (error) {
+    console.error("Erro ao buscar conferentes do backend:", error);
+    throw error;
+  }
+}
+
 /**
  * Busca pedidos pendentes.
  *
@@ -63,6 +107,8 @@ export async function buscarPedidosPendentes(): Promise<DetalhePedido[] | null> 
     pendentesController = new AbortController();
 
     const url = "/api/conferencia/pedidos-pendentes";
+
+    console.log("📡 [API] Buscando pedidos pendentes...");
 
     // timeout só pra esse endpoint (se quiser manter 30s global)
     const data = await getComRetry<DetalhePedido[]>(
@@ -80,7 +126,75 @@ export async function buscarPedidosPendentes(): Promise<DetalhePedido[] | null> 
       return [];
     }
 
-    if (Array.isArray(data)) return data;
+    if (Array.isArray(data)) {
+      console.log("✅ [API] Dados recebidos do backend:", {
+        total: data.length,
+        primeiroPedido: data[0] ? {
+          nunota: data[0].nunota,
+          conferenteId: (data[0] as any).conferenteId,
+          conferenteNome: (data[0] as any).conferenteNome,
+          nomeConferente: data[0].nomeConferente
+        } : null
+      });
+
+      // ✅ Sincroniza conferentes locais com dados do backend
+      const conferenteByNunota = loadConferenteByNunota();
+      const updatedConferenteByNunota = { ...conferenteByNunota };
+      let atualizados = 0;
+      
+      data.forEach(pedido => {
+        const idBackend = (pedido as any).conferenteId;
+        const nomeBackend = (pedido as any).conferenteNome;
+        const nomeConferenteOld = pedido.nomeConferente;
+        
+        // Primeiro, tenta usar os campos específicos do conferente
+        if (idBackend && nomeBackend) {
+          updatedConferenteByNunota[pedido.nunota] = {
+            codUsuario: idBackend,
+            nome: nomeBackend
+          };
+          atualizados++;
+          console.log(`✅ [API] Conferente atualizado do backend: ${pedido.nunota} -> ${nomeBackend}`);
+        } 
+        // Fallback: se não tem os campos específicos, tenta usar o campo antigo
+        else if (nomeConferenteOld && nomeConferenteOld !== "null" && nomeConferenteOld !== "-" && nomeConferenteOld !== "") {
+          // Tenta encontrar o código correspondente
+          const conferenteEncontrado = [
+            { codUsuario: 1, nome: "Manoel" },
+            { codUsuario: 2, nome: "Anderson" },
+            { codUsuario: 3, nome: "Felipe" },
+            { codUsuario: 4, nome: "Matheus" },
+            { codUsuario: 5, nome: "Cristiano" },
+            { codUsuario: 6, nome: "Cristiano Sanhudo" },
+            { codUsuario: 7, nome: "Eduardo" },
+            { codUsuario: 8, nome: "Everton" },
+            { codUsuario: 9, nome: "Maximiliano" },
+          ].find(c => c.nome.toLowerCase() === nomeConferenteOld.toLowerCase());
+          
+          if (conferenteEncontrado) {
+            updatedConferenteByNunota[pedido.nunota] = conferenteEncontrado;
+            atualizados++;
+            console.log(`✅ [API] Conferente encontrado pelo nome: ${pedido.nunota} -> ${nomeConferenteOld}`);
+          } else if (!conferenteByNunota[pedido.nunota]) {
+            // Se não encontrou e não tem no localStorage, cria um temporário
+            updatedConferenteByNunota[pedido.nunota] = {
+              codUsuario: 0,
+              nome: nomeConferenteOld
+            };
+            atualizados++;
+            console.log(`✅ [API] Conferente criado temporariamente: ${pedido.nunota} -> ${nomeConferenteOld}`);
+          }
+        }
+      });
+      
+      // Salva os conferentes atualizados no localStorage
+      if (atualizados > 0) {
+        saveConferenteByNunota(updatedConferenteByNunota);
+        console.log(`🔄 [API] ${atualizados} conferentes sincronizados com localStorage`);
+      }
+      
+      return data;
+    }
 
     console.warn("⚠ [API] Resposta inesperada (data não é array), retornando lista vazia");
     return [];
@@ -108,3 +222,6 @@ export async function buscarPedidosPendentes(): Promise<DetalhePedido[] | null> 
     pendentesController = null;
   }
 }
+
+// ✅ Exporta funções auxiliares para uso no componente
+export { loadConferenteByNunota, saveConferenteByNunota };
