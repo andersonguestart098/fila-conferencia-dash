@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { DetalhePedido } from "../types/conferencia";
 import { statusColors, statusMap } from "../config/status";
 import { dispararAlertasVoz } from "../../public/audio/audioManager";
-import { api } from "../api/client";
+import { api } from "../api/client"; // ✅ usa o axios com baseURL do Heroku
 
 import Lottie from "lottie-react";
 
@@ -18,7 +18,7 @@ interface PedidoListProps {
   erro: string | null;
   selecionado: DetalhePedido | null;
   onSelect: (pedido: DetalhePedido) => void;
-  onRefresh?: () => void; // ✅ Nova prop para recarregar dados
+  onRefresh?: () => void; // ✅ para recarregar lista depois do /iniciar
 }
 
 const ITENS_POR_PAGINA = 50;
@@ -46,7 +46,7 @@ const VENDEDORES: string[] = [
   "DANIEL MACCARI",
 ];
 
-// ✅ conferentes (por enquanto fixo; depois podemos trocar por GET no Mongo)
+// ✅ conferentes (por enquanto fixo)
 type Conferente = { codUsuario: number; nome: string };
 const CONFERENTES: Conferente[] = [
   { codUsuario: 1, nome: "Manoel" },
@@ -92,7 +92,7 @@ function escapeHtml(s: any) {
 function tocarSomAlerta() {
   try {
     const audio = new Audio("/audio/efeitoSonoro.wav");
-    audio.volume = 0.7; // Volume moderado
+    audio.volume = 0.7;
     audio.play().catch((e) => console.log("Erro ao tocar som:", e));
     console.log("🔊 Som de alerta disparado");
   } catch (error) {
@@ -118,115 +118,24 @@ function imprimirExpedicao(p: DetalhePedido, conferente?: Conferente | null) {
       <meta charset="utf-8"/>
       <title>Expedição - Pedido ${escapeHtml(p.nunota)}</title>
       <style>
-        body { 
-          font-family: Arial, sans-serif; 
-          padding: 18px; 
-          color: #111; 
-          max-width: 800px;
-          margin: 0 auto;
-        }
-        .header {
-          text-align: center;
-          margin-bottom: 20px;
-          border-bottom: 2px solid #333;
-          padding-bottom: 10px;
-        }
-        .logo {
-          height: 45px;
-          margin-bottom: 10px;
-        }
-        .title {
-          font-size: 24px;
-          font-weight: 800;
-          margin: 5px 0;
-          color: #333;
-        }
-        .subtitle {
-          font-size: 14px;
-          margin: 5px 0;
-          color: #666;
-        }
-        .top { 
-          display:flex; 
-          justify-content:space-between; 
-          align-items:flex-start; 
-          gap:16px; 
-          margin: 20px 0;
-        }
-        .h1 { 
-          font-size: 20px; 
-          font-weight: 800; 
-          margin: 0 0 4px 0; 
-          color: #333;
-        }
-        .sub { 
-          font-size: 12px; 
-          margin: 4px 0; 
-          color:#555; 
-        }
-        .box { 
-          border:1px solid #ddd; 
-          border-radius:12px; 
-          padding:16px; 
-          margin-top: 10px;
-          background: #fff;
-        }
-        table { 
-          width:100%; 
-          border-collapse:collapse; 
-          margin-top:12px; 
-          font-size: 12px;
-        }
-        th, td { 
-          border:1px solid #ddd; 
-          padding:8px; 
-          text-align: left;
-        }
-        th { 
-          background:#f5f5f5; 
-          font-weight: bold;
-          color: #333;
-        }
-        .muted { 
-          color:#666; 
-          font-size:11px; 
-          margin-top: 10px;
-          font-style: italic;
-        }
-        .sign { 
-          margin-top: 22px; 
-          display:flex; 
-          gap:18px; 
-        }
-        .line { 
-          flex:1; 
-          border-top:1px solid #111; 
-          padding-top:6px; 
-          font-size:12px; 
-          text-align: center;
-        }
-        .right { 
-          text-align:right; 
-        }
-        .total-info {
-          font-weight: bold;
-          margin: 15px 0;
-          padding: 10px;
-          background: #f9f9f9;
-          border-radius: 8px;
-          text-align: center;
-        }
-        .qtd-conferida {
-          border: 1px solid #ccc;
-          width: 70px;
-          text-align: center;
-          background: #fff;
-        }
-        @media print {
-          body { padding: 10px; }
-          .box { border: 1px solid #000; }
-          .no-print { display: none; }
-        }
+        body { font-family: Arial, sans-serif; padding: 18px; color: #111; max-width: 800px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        .logo { height: 45px; margin-bottom: 10px; }
+        .title { font-size: 24px; font-weight: 800; margin: 5px 0; color: #333; }
+        .top { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin: 20px 0; }
+        .h1 { font-size: 20px; font-weight: 800; margin: 0 0 4px 0; color: #333; }
+        .sub { font-size: 12px; margin: 4px 0; color:#555; }
+        .box { border:1px solid #ddd; border-radius:12px; padding:16px; margin-top: 10px; background: #fff; }
+        table { width:100%; border-collapse:collapse; margin-top:12px; font-size: 12px; }
+        th, td { border:1px solid #ddd; padding:8px; text-align: left; }
+        th { background:#f5f5f5; font-weight: bold; color: #333; }
+        .muted { color:#666; font-size:11px; margin-top: 10px; font-style: italic; }
+        .sign { margin-top: 22px; display:flex; gap:18px; }
+        .line { flex:1; border-top:1px solid #111; padding-top:6px; font-size:12px; text-align: center; }
+        .right { text-align:right; }
+        .total-info { font-weight: bold; margin: 15px 0; padding: 10px; background: #f9f9f9; border-radius: 8px; text-align: center; }
+        .qtd-conferida { border: 1px solid #ccc; width: 70px; text-align: center; background: #fff; }
+        @media print { body { padding: 10px; } .box { border: 1px solid #000; } }
       </style>
     </head>
     <body>
@@ -279,10 +188,7 @@ function imprimirExpedicao(p: DetalhePedido, conferente?: Conferente | null) {
         </table>
 
         <div class="total-info">
-          TOTAL DE ITENS: ${itens.length} | TOTAL DE UNIDADES: ${itens.reduce(
-    (sum, item) => sum + item.qtd,
-    0
-  )}
+          TOTAL DE ITENS: ${itens.length} | TOTAL DE UNIDADES: ${itens.reduce((sum, item) => sum + item.qtd, 0)}
         </div>
 
         <p class="muted">Obs: conferir quantidades e integridade dos itens antes da expedição.</p>
@@ -300,9 +206,7 @@ function imprimirExpedicao(p: DetalhePedido, conferente?: Conferente | null) {
       <script>
         window.onload = () => {
           window.focus();
-          setTimeout(() => {
-            window.print();
-          }, 500);
+          setTimeout(() => { window.print(); }, 500);
         };
       </script>
     </body>
@@ -320,19 +224,17 @@ function imprimirExpedicao(p: DetalhePedido, conferente?: Conferente | null) {
 }
 
 type TimerState = {
-  startAt: number | null; // quando começou a contar (em AC)
-  elapsedMs: number; // acumulado (quando pausado/finalizado)
-  running: boolean; // está contando agora
+  startAt: number | null;
+  elapsedMs: number;
+  running: boolean;
 };
-
 type TimerMap = Record<number, TimerState>;
 
 function loadTimers(): TimerMap {
   try {
     const raw = localStorage.getItem("timerByNunota");
     if (!raw) return {};
-    const parsed = JSON.parse(raw) as TimerMap;
-    return parsed ?? {};
+    return (JSON.parse(raw) as TimerMap) ?? {};
   } catch {
     return {};
   }
@@ -362,7 +264,7 @@ function saveAckMap(next: Record<number, boolean>) {
   }
 }
 
-// ✅ salva conferente por pedido (local), pra UX ficar boa mesmo antes do backend devolver no GET
+// ✅ salva conferente por pedido (local), só pra imprimir / lembrar ultimo
 type ConferenteByNunota = Record<number, Conferente>;
 function loadConferenteByNunota(): ConferenteByNunota {
   try {
@@ -388,66 +290,66 @@ export function PedidoList({
   erro,
   selecionado,
   onSelect,
-  onRefresh, // ✅ Recebe a função de refresh
+  onRefresh,
 }: PedidoListProps) {
   const [busca, setBusca] = useState("");
   const [pagina, setPagina] = useState(1);
+
   const [somenteAguardando, setSomenteAguardando] = useState(false);
   const [vendedorFiltro, setVendedorFiltro] = useState<string | null>(null);
-  const [mostrarListaVendedores, setMostrarListaVendedores] = useState(false);
+
+  const [filtrosOpen, setFiltrosOpen] = useState(false);
   const [somAlertaDesativado, setSomAlertaDesativado] = useState(false);
 
-  // ✅ Estado para conferentes carregados do backend
   const [conferentesBackend, setConferentesBackend] = useState<Conferente[]>(CONFERENTES);
 
-  // ✅ timers persistentes por nunota
   const [timerByNunota, setTimerByNunota] = useState<TimerMap>(() => loadTimers());
 
-  // ✅ conferente por pedido (UX)
-  const [conferenteByNunota, setConferenteByNunota] = useState<ConferenteByNunota>(
-    () => loadConferenteByNunota()
+  const [conferenteByNunota, setConferenteByNunota] = useState<ConferenteByNunota>(() =>
+    loadConferenteByNunota()
   );
 
-  // ✅ popover de impressão (qual pedido está "abrindo" o select)
   const [printNunotaOpen, setPrintNunotaOpen] = useState<number | null>(null);
   const [printConferenteId, setPrintConferenteId] = useState<number | "">("");
 
-  // ✅ MODAL GLOBAL de atenção (pedido em alerta)
   const [pedidoEmAtencao, setPedidoEmAtencao] = useState<DetalhePedido | null>(null);
-
-  // ✅ Estado para controlar loading do botão de confirmação
   const [loadingConfirmacao, setLoadingConfirmacao] = useState<number | null>(null);
 
-  // ✅ Refs para controle de som
   const ultimoAlertaSomRef = useRef<number>(0);
   const somIntervalRef = useRef<number | null>(null);
 
-  // ✅ Novo: Rastreamento dos últimos status para detectar mudanças
   const [ultimosStatus, setUltimosStatus] = useState<Record<number, string>>({});
 
-  // ⏱ força re-render 1x/segundo pro mm:ss andar
+  // ⏱ força re-render 1x/segundo
   const [, forceTick] = useState(0);
   useEffect(() => {
     const id = window.setInterval(() => forceTick((x) => x + 1), 1000);
     return () => window.clearInterval(id);
   }, []);
 
-  // ✅ Carrega conferentes do backend quando o componente montar
+  // fecha dropdown filtros no ESC
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setFiltrosOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // (opcional) carregar conferentes do backend (se vc criar endpoint)
   useEffect(() => {
     async function carregarConferentes() {
       try {
-        // Se você implementar o endpoint no backend, descomente:
-        // const conferentes = await buscarConferentesDoBackend();
-        // setConferentesBackend(conferentes);
+        // const res = await api.get("/api/conferentes");
+        // setConferentesBackend(res.data);
       } catch (error) {
         console.error("Erro ao carregar conferentes:", error);
       }
     }
-
     carregarConferentes();
   }, []);
 
-  // ✅ Atualiza timers conforme status
+  // Atualiza timers conforme status
   useEffect(() => {
     if (!pedidos?.length) return;
 
@@ -463,7 +365,6 @@ export function PedidoList({
 
         const current = next[nunota] ?? { startAt: null, elapsedMs: 0, running: false };
 
-        // 1) Entrou em AC => inicia (se ainda não estiver rodando)
         if (statusCode === "AC") {
           if (!current.running) {
             next[nunota] = { startAt: now, elapsedMs: current.elapsedMs, running: true };
@@ -473,7 +374,6 @@ export function PedidoList({
           continue;
         }
 
-        // 2) Virou Finalizada OK => para e congela tempo (se estava rodando)
         if (isFinalizadaOk) {
           if (current.running && current.startAt) {
             const elapsed = current.elapsedMs + (now - current.startAt);
@@ -484,7 +384,6 @@ export function PedidoList({
           continue;
         }
 
-        // 3) Saiu do AC para qualquer outro status => pausa
         if (current.running && current.startAt) {
           const elapsed = current.elapsedMs + (now - current.startAt);
           next[nunota] = { startAt: null, elapsedMs: elapsed, running: false };
@@ -498,40 +397,29 @@ export function PedidoList({
     });
   }, [pedidos]);
 
-  // ✅ CORREÇÃO: Detecta mudanças de status para AC e toca som
+  // Detecta mudança pra AC e toca som
   useEffect(() => {
     if (!pedidos?.length || somAlertaDesativado) return;
 
     const novosStatus: Record<number, string> = {};
-    pedidos.forEach((p) => {
-      novosStatus[p.nunota] = normalizeStatus((p as any).statusConferencia);
-    });
+    pedidos.forEach((p) => (novosStatus[p.nunota] = normalizeStatus((p as any).statusConferencia)));
 
-    // Detecta mudanças
     pedidos.forEach((p) => {
       const nunota = p.nunota;
       const novoStatus = novosStatus[nunota];
       const statusAnterior = ultimosStatus[nunota];
 
-      // Se o status mudou para AC (independente do status anterior)
       if (novoStatus === "AC" && statusAnterior !== "AC") {
-        console.log("🔊 [SOM] Status mudou para AC:", nunota, "anterior:", statusAnterior);
-
-        // Dispara som com pequeno delay para garantir
-        setTimeout(() => {
-          tocarSomAlerta();
-        }, 100);
+        setTimeout(() => tocarSomAlerta(), 100);
       }
     });
 
-    // Atualiza o registro de status
     setUltimosStatus(novosStatus);
   }, [pedidos, somAlertaDesativado]);
 
-  // ✅ Controle de som para pedidos com mais de 5 minutos
+  // Som periódico +5min
   useEffect(() => {
     if (!pedidos?.length || somAlertaDesativado) {
-      // Limpa intervalo se não há pedidos ou som está desativado
       if (somIntervalRef.current) {
         window.clearInterval(somIntervalRef.current);
         somIntervalRef.current = null;
@@ -539,7 +427,6 @@ export function PedidoList({
       return;
     }
 
-    // Encontra todos os pedidos em AC com mais de 5 minutos
     const pedidosComMaisDe5Min = pedidos.filter((p) => {
       const statusCode = normalizeStatus((p as any).statusConferencia);
       if (statusCode !== "AC") return false;
@@ -551,33 +438,26 @@ export function PedidoList({
       const elapsedMs =
         timer.running && timer.startAt ? timer.elapsedMs + (now - timer.startAt) : timer.elapsedMs;
 
-      return elapsedMs >= 5 * 60 * 1000; // 5 minutos
+      return elapsedMs >= 5 * 60 * 1000;
     });
 
-    // Se há pedidos com mais de 5 minutos, configura intervalo de som
     if (pedidosComMaisDe5Min.length > 0) {
       if (!somIntervalRef.current) {
-        console.log("🔊 [SOM] Configurando intervalo de som para pedidos com +5min");
         somIntervalRef.current = window.setInterval(() => {
-          // Toca som a cada 5 segundos
           const agora = Date.now();
           if (agora - ultimoAlertaSomRef.current >= 5000) {
             tocarSomAlerta();
             ultimoAlertaSomRef.current = agora;
-            console.log("🔊 [SOM] Alerta periódico para pedidos com +5min");
           }
-        }, 5000); // Verifica a cada 5 segundos
+        }, 5000);
       }
     } else {
-      // Limpa intervalo se não há pedidos com mais de 5 minutos
       if (somIntervalRef.current) {
         window.clearInterval(somIntervalRef.current);
         somIntervalRef.current = null;
-        console.log("🔊 [SOM] Intervalo de som limpo - nenhum pedido com +5min");
       }
     }
 
-    // Cleanup
     return () => {
       if (somIntervalRef.current) {
         window.clearInterval(somIntervalRef.current);
@@ -586,7 +466,7 @@ export function PedidoList({
     };
   }, [pedidos, timerByNunota, somAlertaDesativado]);
 
-  // ✅ Detecta GLOBALMENTE pedido em atenção (AC >= 5min e sem ACK) e liga modal
+  // Modal atenção (AC >= 5 min e sem ACK)
   useEffect(() => {
     if (!pedidos?.length) {
       setPedidoEmAtencao(null);
@@ -596,7 +476,6 @@ export function PedidoList({
     const now = Date.now();
     const ack = loadAckMap();
 
-    // prioridade: maior tempo em AC (e sem ACK)
     const candidatos = pedidos
       .filter((p) => normalizeStatus((p as any).statusConferencia) === "AC")
       .filter((p) => !ack[p.nunota])
@@ -609,18 +488,12 @@ export function PedidoList({
       .filter((x) => x.ms >= 5 * 60 * 1000)
       .sort((a, b) => b.ms - a.ms);
 
-    const escolhido = candidatos[0]?.p ?? null;
-
-    if (escolhido?.nunota !== pedidoEmAtencao?.nunota) {
-      console.log("🚨 [MODAL ATENÇÃO] escolhido:", escolhido?.nunota ?? null);
-    }
-
-    setPedidoEmAtencao(escolhido);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setPedidoEmAtencao(candidatos[0]?.p ?? null);
   }, [pedidos, timerByNunota]);
 
-  // ✅ AUTO-SELEÇÃO a cada 35s:
+  // Auto-select 35s
   const lastAutoRef = useRef<number>(0);
+  const filtradosRef = useRef<DetalhePedido[]>([]);
   useEffect(() => {
     const id = window.setInterval(() => {
       const now = Date.now();
@@ -631,13 +504,10 @@ export function PedidoList({
       if (pedidoEmAtencao) {
         alvo = pedidoEmAtencao;
       } else {
-        // @ts-ignore
-        const firstVisible = (filtradosRef.current?.[0] as DetalhePedido | undefined) ?? null;
-        alvo = firstVisible;
+        alvo = (filtradosRef.current?.[0] as DetalhePedido | undefined) ?? null;
       }
 
       if (alvo && selecionado?.nunota !== alvo.nunota) {
-        console.log("🔁 [AUTO-SELECT 35s] voltando seleção para:", alvo.nunota);
         onSelect(alvo);
       }
 
@@ -647,56 +517,49 @@ export function PedidoList({
     return () => window.clearInterval(id);
   }, [pedidoEmAtencao, selecionado?.nunota, onSelect]);
 
-  // ✅ Função para parar o som quando clicar no OK do modal
   const handleAckModal = (nunota: number) => {
     if (somIntervalRef.current) {
       window.clearInterval(somIntervalRef.current);
       somIntervalRef.current = null;
-      console.log("🔊 [SOM] Intervalo de som parado via OK modal");
     }
-
     const ack = loadAckMap();
     ack[nunota] = true;
     saveAckMap(ack);
-
     setPedidoEmAtencao(null);
   };
 
-  // ✅ Função para alternar o estado do som
   const toggleSomAlerta = () => {
     const novoEstado = !somAlertaDesativado;
     setSomAlertaDesativado(novoEstado);
 
-    if (novoEstado) {
-      if (somIntervalRef.current) {
-        window.clearInterval(somIntervalRef.current);
-        somIntervalRef.current = null;
-        console.log("🔊 [SOM] Alerta de +5min desativado pelo usuário");
-      }
-    } else {
-      console.log("🔊 [SOM] Alerta de +5min ativado pelo usuário");
+    if (novoEstado && somIntervalRef.current) {
+      window.clearInterval(somIntervalRef.current);
+      somIntervalRef.current = null;
     }
   };
 
-  // ✅ Função para sincronizar conferentes
   const sincronizarConferentes = () => {
     try {
-      console.log("🔄 Sincronizando conferentes...");
-
       localStorage.removeItem("conferenteByNunota");
-
       if (onRefresh) onRefresh();
-
       alert("Conferentes sincronizados. Os dados serão atualizados.");
-
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      setTimeout(() => window.location.reload(), 1000);
     } catch (error) {
       console.error("Erro ao sincronizar conferentes:", error);
       alert("Erro ao sincronizar conferentes.");
     }
   };
+
+  // ✅ CHAMA /api/conferencia/iniciar PELO AXIOS (HEROKU)
+  async function iniciarConferenciaViaBackend(nunota: number, codUsuario: number) {
+    // ✅ rota correta
+    // ✅ body correto: nunotaOrig
+    const res = await api.post("/api/conferencia/iniciar", {
+      nunotaOrig: nunota,
+      codUsuario,
+    });
+    return res.data;
+  }
 
   useEffect(() => {
     setPagina(1);
@@ -728,7 +591,6 @@ export function PedidoList({
     });
   }, [busca, pedidos, somenteAguardando, vendedorFiltro]);
 
-  const filtradosRef = useRef<DetalhePedido[]>([]);
   useEffect(() => {
     filtradosRef.current = filtrados;
   }, [filtrados]);
@@ -742,19 +604,15 @@ export function PedidoList({
     dispararAlertasVoz(pedidos);
   }, [pedidos]);
 
-  // ✅ BLINDADO: conferente pra exibir no card (backend -> legado -> local -> null)
   function getConferenteExibicao(p: any): Conferente | null {
     const idBackend = (p as any).conferenteId as number | null | undefined;
     const nomeBackend = (p as any).conferenteNome as string | null | undefined;
-
     const nomeConferenteOld = (p as any).nomeConferente as string | null | undefined;
 
-    // 1) Se tiver nome + id do backend
     if (idBackend && nomeBackend && nomeBackend !== "null" && nomeBackend !== "-" && nomeBackend !== "") {
       return { codUsuario: idBackend, nome: nomeBackend };
     }
 
-    // 2) Se tiver só nome (backend sem id), ainda assim mostra!
     const nomeApenas =
       (nomeBackend && nomeBackend !== "null" && nomeBackend !== "-" && nomeBackend !== ""
         ? nomeBackend
@@ -764,55 +622,49 @@ export function PedidoList({
         : null);
 
     if (nomeApenas) {
-      // tenta achar na lista fixa pra pegar o codUsuario real
       const encontrado = conferentesBackend.find(
         (c) => c.nome.toLowerCase() === nomeApenas.toLowerCase()
       );
       if (encontrado) return encontrado;
 
-      // tenta localStorage
       const local = conferenteByNunota[p.nunota];
       if (local && local.nome.toLowerCase() === nomeApenas.toLowerCase()) return local;
 
-      // fallback: temporário (mostra no card)
       return { codUsuario: 0, nome: nomeApenas };
     }
 
-    // 3) localStorage por último
     return conferenteByNunota[p.nunota] ?? null;
   }
 
-  // ✅ fluxo final: salvar conferente + iniciar + imprimir
+  // ✅ Confirmar: chama /iniciar e depois imprime (sem setar conferente no mongo)
   async function confirmarConferenteEImprimir(p: DetalhePedido, conf: Conferente) {
     setLoadingConfirmacao(p.nunota);
 
     try {
-      await api.post("/api/conferencia/conferente", {
-        nunota: p.nunota,
-        nome: conf.nome,
-        codUsuario: conf.codUsuario,
-      });
-
+      // guarda localmente só pra lembrar quem imprimiu
       setConferenteByNunota((prev) => {
         const next = { ...prev, [p.nunota]: conf };
         saveConferenteByNunota(next);
         return next;
       });
 
-      await api.post("/api/conferencia/iniciar", {
-        nunotaOrig: p.nunota,
-        codUsuario: conf.codUsuario,
-      });
+      // ✅ chamar backend /iniciar (somente isso)
+      try {
+        await iniciarConferenciaViaBackend(p.nunota, conf.codUsuario);
+        if (onRefresh) onRefresh();
+      } catch (err) {
+        console.error("❌ erro ao chamar /iniciar:", err);
+        alert("Imprimiu, mas não consegui iniciar a conferência no backend.");
+      }
 
-      onSelect(p);
-
+      // imprime
       imprimirExpedicao(p, conf);
 
       setPrintNunotaOpen(null);
       setPrintConferenteId("");
     } catch (e: any) {
-      console.error("❌ erro salvar conferente / iniciar / imprimir:", e);
-      alert("Erro ao salvar conferente / iniciar conferência / imprimir.");
+      console.error("❌ erro ao imprimir:", e);
+      alert("Erro ao imprimir.");
     } finally {
       setLoadingConfirmacao(null);
     }
@@ -856,54 +708,87 @@ export function PedidoList({
           style={{ flex: 1, minWidth: "200px" }}
         />
 
-        <button
-          className={"chip" + (somenteAguardando ? " chip-active" : "")}
-          onClick={() => setSomenteAguardando((s) => !s)}
-          title="Mostrar só aguardando conferência (AC)"
-        >
-          Só aguardando
-        </button>
-
+        {/* ✅ UM ÚNICO BOTÃO DE FILTROS */}
         <div style={{ position: "relative" }}>
           <button
-            className={"chip" + (vendedorFiltro ? " chip-active" : "")}
-            onClick={() => setMostrarListaVendedores((v) => !v)}
-            title="Filtrar por vendedor"
+            className={"chip" + (somenteAguardando || !!vendedorFiltro ? " chip-active" : "")}
+            onClick={() => setFiltrosOpen((v) => !v)}
+            title="Filtros"
           >
-            Filtrar por vendedor
+            🎛️ Filtros
           </button>
 
-          {mostrarListaVendedores && (
-            <div className="dropdown">
-              <button
-                className="dropdown-item"
-                onClick={() => {
-                  setVendedorFiltro(null);
-                  setMostrarListaVendedores(false);
+          {filtrosOpen && (
+            <>
+              <div
+                onClick={() => setFiltrosOpen(false)}
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 9998,
+                  background: "transparent",
                 }}
+              />
+
+              <div
+                className="dropdown"
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: "110%",
+                  zIndex: 9999,
+                  minWidth: 280,
+                  padding: 8,
+                  borderRadius: 12,
+                  border: "1px solid rgba(0,0,0,0.12)",
+                  boxShadow: "0 18px 60px rgba(0,0,0,0.20)",
+                  background: "rgba(255,255,255,0.98)",
+                }}
+                onClick={(e) => e.stopPropagation()}
               >
-                (Todos)
-              </button>
-              {VENDEDORES.map((v) => (
+                <button className="dropdown-item" onClick={() => setSomenteAguardando((s) => !s)}>
+                  {somenteAguardando ? "✅ Só aguardando (AC)" : "☐ Só aguardando (AC)"}
+                </button>
+
+                <div style={{ height: 1, background: "rgba(0,0,0,0.08)", margin: "8px 0" }} />
+
+                <div style={{ fontWeight: 900, padding: "6px 10px", opacity: 0.85 }}>Vendedor</div>
+
+                <button className="dropdown-item" onClick={() => setVendedorFiltro(null)}>
+                  {vendedorFiltro ? "☐ (Todos)" : "✅ (Todos)"}
+                </button>
+
+                {VENDEDORES.map((v) => (
+                  <button key={v} className="dropdown-item" onClick={() => setVendedorFiltro(v)}>
+                    {vendedorFiltro?.toLowerCase() === v.toLowerCase() ? "✅ " : ""}
+                    {v}
+                  </button>
+                ))}
+
+                <div style={{ height: 1, background: "rgba(0,0,0,0.08)", margin: "8px 0" }} />
+
                 <button
-                  key={v}
                   className="dropdown-item"
                   onClick={() => {
-                    setVendedorFiltro(v);
-                    setMostrarListaVendedores(false);
+                    setSomenteAguardando(false);
+                    setVendedorFiltro(null);
                   }}
                 >
-                  {v}
+                  🧹 Limpar filtros
                 </button>
-              ))}
-            </div>
+
+                <button className="dropdown-item" onClick={() => setFiltrosOpen(false)}>
+                  ✖️ Fechar
+                </button>
+              </div>
+            </>
           )}
         </div>
 
         <button
           className="chip"
           onClick={sincronizarConferentes}
-          title="Sincronizar conferentes com o backend"
+          title="Sincronizar conferentes"
           style={{ backgroundColor: "#2196F3", color: "white" }}
         >
           🔄 Sinc. Conferentes
@@ -919,10 +804,7 @@ export function PedidoList({
 
         <button
           className="chip"
-          onClick={() => {
-            console.log("🔊 Testando som manualmente");
-            tocarSomAlerta();
-          }}
+          onClick={() => tocarSomAlerta()}
           style={{ marginLeft: "10px" }}
         >
           Testar Som
@@ -941,11 +823,7 @@ export function PedidoList({
           const statusBase = statusMap[(p as any).statusConferencia] || "-";
           const isFinalizadaOk = statusBase === "Finalizada OK";
 
-          const timer = timerByNunota[p.nunota] ?? {
-            startAt: null,
-            elapsedMs: 0,
-            running: false,
-          };
+          const timer = timerByNunota[p.nunota] ?? { startAt: null, elapsedMs: 0, running: false };
 
           const now = Date.now();
           const liveElapsedMs =
@@ -953,12 +831,11 @@ export function PedidoList({
 
           const elapsedMin = Math.floor(liveElapsedMs / 60000);
 
+          // ✅ PULSO A PARTIR DE 5+ min
           const alerta5min = aguardando && elapsedMin >= 5;
-          const alerta25min = aguardando && elapsedMin >= 25;
 
           const confExibicao = getConferenteExibicao(p);
 
-          // ✅ BLINDADO: texto direto pro card (não depende só do confExibicao)
           const nomeConferenteTexto =
             (p as any).conferenteNome ??
             (p as any).nomeConferente ??
@@ -972,13 +849,8 @@ export function PedidoList({
           return (
             <div
               key={p.nunota}
-              className={
-                "card" + (isSelected ? " card-selected" : "") + (alerta25min ? " card-pulse" : "")
-              }
-              onClick={() => {
-                console.log("🖱️ [SELECT] clicou no card:", p.nunota);
-                onSelect(p);
-              }}
+              className={"card" + (isSelected ? " card-selected" : "") + (alerta5min ? " card-pulse" : "")}
+              onClick={() => onSelect(p)}
             >
               <div className="card-header compact">
                 <div className="header-left compact">
@@ -1007,7 +879,6 @@ export function PedidoList({
                       {p.nomeVendedor && <div className="line">👤 {p.nomeVendedor}</div>}
                       <div className="line">📦 {p.itens.length} itens</div>
 
-                      {/* ✅ conferente por pedido (agora BLINDADO) */}
                       <div className="line" style={{ opacity: 0.9 }}>
                         🧑‍💼 Conferente: {nomeConferenteTexto}
                       </div>
@@ -1026,11 +897,7 @@ export function PedidoList({
                       >
                         <div
                           className="status-dot"
-                          style={{
-                            backgroundColor: colors.text,
-                            width: 10,
-                            height: 10,
-                          }}
+                          style={{ backgroundColor: colors.text, width: 10, height: 10 }}
                         />
                         <span
                           className="status-text"
@@ -1045,7 +912,7 @@ export function PedidoList({
                         </span>
                       </div>
 
-                      <div className={"timer-box" + (alerta25min ? " timer-box-hot" : "")}>
+                      <div className={"timer-box" + (alerta5min ? " timer-box-hot" : "")}>
                         <div className="timer-top">
                           <div className="timer-lottie">
                             <Lottie animationData={temporizadorAnim} loop={timer.running} autoplay />
@@ -1085,7 +952,7 @@ export function PedidoList({
                           const presetId = confExibicao?.codUsuario ?? "";
                           setPrintConferenteId(presetId as any);
                         }}
-                        title={aguardando ? "Imprimir e iniciar conferência" : "Imprimir documento"}
+                        title={aguardando ? "Imprimir (com responsável)" : "Imprimir documento"}
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
@@ -1159,10 +1026,7 @@ export function PedidoList({
                                 confirmarConferenteEImprimir(p, found);
                               }}
                               disabled={isLoadingThis}
-                              style={{
-                                position: "relative",
-                                minWidth: "120px",
-                              }}
+                              style={{ position: "relative", minWidth: "120px" }}
                             >
                               {isLoadingThis ? (
                                 <>
@@ -1197,15 +1061,7 @@ export function PedidoList({
       </div>
 
       {pedidoEmAtencao && (
-        <div
-          className="attention-overlay"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 999999,
-          }}
-          onClick={() => {}}
-        >
+        <div className="attention-overlay" style={{ position: "fixed", inset: 0, zIndex: 999999 }}>
           <div className="attention-overlay-content" onClick={(e) => e.stopPropagation()}>
             <div className="attention-overlay-lottie">
               <Lottie animationData={atencaoAnim} loop autoplay />
@@ -1220,12 +1076,7 @@ export function PedidoList({
               Tempo: {attentionInfo?.mmss ?? "00:00"}
             </div>
 
-            <button
-              className="attention-overlay-ok"
-              onClick={() => {
-                handleAckModal(pedidoEmAtencao.nunota);
-              }}
-            >
+            <button className="attention-overlay-ok" onClick={() => handleAckModal(pedidoEmAtencao.nunota)}>
               OK
             </button>
           </div>
@@ -1245,42 +1096,31 @@ export function PedidoList({
           <div className="chip">
             {pagina}/{totalPaginas}
           </div>
-          <button
-            className="chip"
-            disabled={pagina >= totalPaginas}
-            onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-          >
+          <button className="chip" disabled={pagina >= totalPaginas} onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}>
             →
           </button>
         </div>
       </div>
 
       <style>{`
-        .chip-inactive {
-          background-color: #f0f0f0;
-          color: #666;
-          border: 1px solid #ddd;
+        .chip-inactive { background-color: #f0f0f0; color: #666; border: 1px solid #ddd; }
+        .chip-inactive:hover { background-color: #e5e5e5; }
+        .btn-start-inactive { opacity: 0.7; background-color: #e9ecef; color: #6c757d; border: 1px solid #dee2e6; }
+        .btn-start-inactive:hover { background-color: #dee2e6; }
+
+        .dropdown-item {
+          width: 100%;
+          text-align: left;
+          padding: 10px 12px;
+          border-radius: 10px;
+          border: 0;
+          background: transparent;
+          cursor: pointer;
+          font-weight: 700;
         }
-        
-        .chip-inactive:hover {
-          background-color: #e5e5e5;
-        }
-        
-        .btn-start-inactive {
-          opacity: 0.7;
-          background-color: #e9ecef;
-          color: #6c757d;
-          border: 1px solid #dee2e6;
-        }
-        
-        .btn-start-inactive:hover {
-          background-color: #dee2e6;
-        }
-        
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
+        .dropdown-item:hover { background: rgba(0,0,0,0.06); }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
       `}</style>
     </div>
   );
