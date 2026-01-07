@@ -1,7 +1,9 @@
 // src/App.tsx
+import { useState } from "react";
 import "./App.css";
 import { useFilaConferencia } from "./hooks/useFilaConferencia";
-import { PedidoTable } from "./components/PedidoTable";
+import { PedidoList } from "./components/PedidoList";
+import { DetalhePedidoPanel } from "./components/DetalhePedidoPanel";
 import {
   AUDIO_INSTANCE_ID,
   limparTudoAudio,
@@ -14,9 +16,12 @@ function App() {
   const { pedidos, loadingInicial, erro, selecionado, setSelecionado } =
     useFilaConferencia();
 
+  // 👇 estado para exibir/ocultar o painel de detalhes
+  const [mostrarDetalhe, setMostrarDetalhe] = useState(true);
+
   return (
     <div className="app-root">
-      {/* ✅ NAVBAR novo estilo (sem filtros/busca/avatar) */}
+      {/* ✅ NAVBAR atual (estilo Cemear) */}
       <header className="cemear-navbar">
         <div className="cemear-navbar-inner">
           {/* Linha superior */}
@@ -33,15 +38,19 @@ function App() {
 
             <div className="cemear-navbar-right">
               <div className="cemear-logo-wrap" title="Cemear">
-                <img src={logoCemear} alt="Cemear" className="cemear-logo" />
+                <img
+                  src={logoCemear}
+                  alt="Cemear"
+                  className="cemear-logo"
+                />
               </div>
             </div>
           </div>
 
-          {/* Linha inferior (mantém o que você já tinha) */}
+          {/* Linha inferior (mantém teus botões) */}
           <div className="cemear-navbar-bottom">
             <div className="cemear-actions-left">
-              <span className="cemear-pill">Pedidos: {pedidos.length}</span>
+              <span className="cemear-pill">Cards: {pedidos.length}</span>
 
               {erro ? (
                 <span className="cemear-pill cemear-pill-warn">
@@ -51,6 +60,19 @@ function App() {
             </div>
 
             <div className="cemear-actions-right">
+              {/* 👁️ Mostrar/Ocultar Detalhe */}
+              <button
+                className="cemear-btn"
+                onClick={() => setMostrarDetalhe((v) => !v)}
+                title={
+                  mostrarDetalhe
+                    ? "Ocultar detalhes do pedido"
+                    : "Mostrar detalhes do pedido"
+                }
+              >
+                {mostrarDetalhe ? "👁️ Ocultar Detalhe" : "🧾 Mostrar Detalhe"}
+              </button>
+
               <button
                 className="cemear-btn"
                 onClick={verificarEstadoFila}
@@ -72,19 +94,32 @@ function App() {
       </header>
 
       <main className="main-content">
-        <section className="list-pane" style={{ width: "100%" }}>
-          <PedidoTable
+        <section className="list-pane">
+          <PedidoList
             pedidos={pedidos}
             loadingInicial={loadingInicial}
             erro={erro}
             selecionado={selecionado}
             onSelect={setSelecionado}
-            // onRefresh={refetch}
           />
         </section>
+
+        {/* Só renderiza o painel direito se estiver habilitado */}
+        {mostrarDetalhe && (
+          <aside className="detail-pane">
+            {selecionado ? (
+              <DetalhePedidoPanel pedido={selecionado} />
+            ) : (
+              <div className="detail-empty">
+                <span>👈</span>
+                <span>Selecione um pedido na lista</span>
+              </div>
+            )}
+          </aside>
+        )}
       </main>
 
-      {/* ✅ CSS do navbar embutido (se preferir, eu movo pro App.css) */}
+      {/* ✅ CSS do navbar (pode mover pro App.css se quiser) */}
       <style>{`
         .cemear-navbar{
           position: sticky;
