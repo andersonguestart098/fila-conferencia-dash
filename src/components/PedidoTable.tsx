@@ -18,8 +18,8 @@ interface PedidoTableProps {
 
 const ITENS_POR_PAGINA = 50;
 
-// 🔁 ajuste se teu backend usa outro path
-const ROTA_DEFINIR_CONFERENTE = "/api/conferencia/definir-conferente";
+// ✅ rotas REAIS do teu backend (ConferenciaController)
+const ROTA_DEFINIR_CONFERENTE = "/api/conferencia/conferente";
 const ROTA_FINALIZAR = "/api/conferencia/finalizar";
 
 const VENDEDORES: string[] = [
@@ -250,7 +250,7 @@ export function PedidoTable({
     });
 
     setUltimosStatus(novosStatus);
-  }, [pedidos, somAlertaDesativado]);
+  }, [pedidos, somAlertaDesativado]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Som periódico +5min (SEM modal fullscreen)
   useEffect(() => {
@@ -381,17 +381,20 @@ export function PedidoTable({
     return conferenteByNunota[p.nunota] ?? null;
   }
 
-  async function definirConferenteNoBackend(nunota: number, codUsuario: number) {
+  // ✅ backend espera: { nunota, nome, codUsuario }
+  async function definirConferenteNoBackend(nunota: number, conf: Conferente) {
     const res = await api.post(ROTA_DEFINIR_CONFERENTE, {
-      nunotaOrig: nunota,
-      codUsuario,
+      nunota,
+      nome: conf.nome,
+      codUsuario: conf.codUsuario,
     });
     return res.data;
   }
 
-  async function finalizarConferenciaViaBackend(nunota: number, codUsuario: number) {
+  // ✅ backend espera: { nuconf, codUsuario }
+  async function finalizarConferenciaViaBackend(nuconf: number, codUsuario: number) {
     const res = await api.post(ROTA_FINALIZAR, {
-      nunotaOrig: nunota,
+      nuconf,
       codUsuario,
     });
     return res.data;
@@ -406,8 +409,15 @@ export function PedidoTable({
         return next;
       });
 
-      await definirConferenteNoBackend(p.nunota, conf.codUsuario);
-      await finalizarConferenciaViaBackend(p.nunota, conf.codUsuario);
+      // 1) define conferente por NUNOTA
+      await definirConferenteNoBackend(p.nunota, conf);
+
+      // 2) finaliza por NUCONF
+      const nuconf = Number(p.nuconf ?? 0);
+      if (!nuconf) {
+        throw new Error(`Pedido #${p.nunota} veio sem nuconf (necessário para finalizar).`);
+      }
+      await finalizarConferenciaViaBackend(nuconf, conf.codUsuario);
 
       setFinalizarNunotaOpen(null);
       setFinalizarConferenteId("");

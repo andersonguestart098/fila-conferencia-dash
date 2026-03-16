@@ -3,30 +3,30 @@
 export interface ItemConferencia {
   sequencia: number;
   codProd: number;
+  codGrupoProd?: number | null;
   descricao: string;
   unidade: string;
 
-  // Quantidades (podem vir nulas do backend)
   qtdEsperada?: number | null;
   qtdConferida?: number | null;
   qtdOriginal?: number | null;
   qtdAtual?: number | null;
-  
-  // Campos adicionais que podem vir do backend
-  qtdNeg?: number; // ✅ Adicionado para compatibilidade
+
+  qtdNeg?: number;
   vlrUnit?: number;
   vlrTot?: number;
+  estoqueDisponivel?: number | null;
 }
 
 export interface DetalhePedido {
   nunota: number;
   numNota?: number | null;
+   nuconf?: number | null;
 
   statusConferencia: string; // "AC", "A", "R", etc.
 
   nomeParc?: string | null;
   nomeVendedor?: string | null;
-  
   
   // ✅ Campos para o conferente
   conferenteId?: number | null;       // Código do conferente (salvo pelo app mobile)
